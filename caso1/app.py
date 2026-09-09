@@ -1,14 +1,12 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, send_file
 import os
 import yt_dlp
 
 app = Flask(__name__)
 
-# Carpeta donde se guardan los videos descargados dentro del contenedor
-DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
+DOWNLOAD_DIR = "/app/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Plataformas soportadas (informativo para el usuario)
 PLATAFORMAS = ["YouTube", "Instagram", "TikTok", "Facebook", "LinkedIn"]
 
 HTML_TEMPLATE = """
@@ -27,9 +25,7 @@ HTML_TEMPLATE = """
             border-radius: 5px; cursor: pointer; margin-left: 10px;
         }
         .plataformas { margin-top: 15px; color: #555; }
-        .mensaje { margin-top: 25px; font-weight: bold; }
-        .ok { color: #2e7d32; }
-        .error { color: #c62828; }
+        .mensaje { margin-top: 25px; font-weight: bold; color: #c62828; }
     </style>
 </head>
 <body>
@@ -40,56 +36,45 @@ HTML_TEMPLATE = """
         <input type="submit" value="Descargar">
     </form>
     {% if message %}
-        <p class="mensaje {{ 'ok' if ok else 'error' }}">{{ message }}</p>
+        <p class="mensaje">{{ message }}</p>
     {% endif %}
 </body>
 </html>
 """
 
-
 @app.route("/")
 def index():
-    return render_template_string(
-        HTML_TEMPLATE, plataformas=", ".join(PLATAFORMAS), message=None, ok=False
-    )
-
+    return render_template_string(HTML_TEMPLATE, plataformas=", ".join(PLATAFORMAS), message=None)
 
 @app.route("/download", methods=["POST"])
 def download():
     url = request.form.get("url", "").strip()
-    message = ""
-    ok = False
 
     if not url:
-        message = "Debes ingresar una URL válida."
-    else:
-        ydl_opts = {
-            "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
-            # Intenta la mejor combinación video+audio por separado (requiere
-            # ffmpeg para fusionar) y si no existe, cae a un único archivo "best"
-            "format": "bestvideo+bestaudio/best",
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-            "quiet": True,
-        }
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                titulo = info.get("title", "video")
-            message = f"¡Video '{titulo}' descargado con éxito en el servidor!"
-            ok = True
-        except Exception as e:
-            message = f"Error al descargar: {str(e)}"
+        return render_template_string(HTML_TEMPLATE, plataformas=", ".join(PLATAFORMAS), message="Debes ingresar una URL válida.")
 
-    return render_template_string(
-        HTML_TEMPLATE, plataformas=", ".join(PLATAFORMAS), message=message, ok=ok
-    )
-
+    ydl_opts = {
+        "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
+        "format": "bestvideo+bestaudio/best",
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "quiet": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            if not filename.endswith('.mp4'):
+                filename = os.path.splitext(filename)[0] + '.mp4'
+            
+            # Esto obliga al navegador a descargar el archivo directamente a tu PC
+            return send_file(filename, as_attachment=True)
+    except Exception as e:
+        return render_template_string(HTML_TEMPLATE, plataformas=", ".join(PLATAFORMAS), message=f"Error al descargar: {str(e)}")
 
 @app.route("/health")
 def health():
     return {"status": "ok"}, 200
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
