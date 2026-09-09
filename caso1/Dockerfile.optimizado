@@ -1,0 +1,33 @@
+# Usa imagen Alpine para menor tamaño
+FROM python:3.11-alpine
+
+# Instala dependencias del sistema en una sola capa (gcc/musl para compilar libs
+# de Python, ffmpeg para que yt-dlp una pistas de audio/video)
+RUN apk add --no-cache gcc musl-dev linux-headers ffmpeg
+
+# Establece directorio de trabajo
+WORKDIR /app
+
+# Copia e instala dependencias primero (mejor cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia el código de la aplicación
+COPY app.py .
+
+# Crea carpeta de descargas y un usuario no-root para seguridad
+RUN mkdir -p /app/downloads && \
+    adduser -D appuser && \
+    chown -R appuser /app
+
+USER appuser
+
+# Expone el puerto
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+
+# Comando de ejecución
+CMD ["python", "app.py"]
