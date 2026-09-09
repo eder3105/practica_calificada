@@ -40,3 +40,6 @@ CASO 2: Automatización con Selenium
 4. Cómo probarlo: La terminal arrojará automáticamente el mensaje de éxito de la automatización y generará el Excel de resultados.
 
 ---
+## 🎥 Video de Demostración y Evidencia
+La ejecución completa de los microservicios y la validación de los casos se encuentra registrada en el siguiente archivo multimedia dentro del repositorio:
+- [Descargar y Ver Video de Demostración](./2026-09-09%2011-00-23%20%28online-video-cutter.com%29.mp4)
